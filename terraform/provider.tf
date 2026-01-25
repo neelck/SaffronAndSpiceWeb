@@ -9,7 +9,7 @@ terraform {
   backend "azurerm" {
     # These values must match the storage account you created for your state
     resource_group_name  = "tfstate-rg"
-    storage_account_name = "saffronstate"
+    storage_account_name = "saffrontfstate"
     container_name       = "tfstate"
     key                  = "restaurant.terraform.tfstate"
     
