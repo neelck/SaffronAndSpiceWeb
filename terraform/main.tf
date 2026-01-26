@@ -21,12 +21,17 @@ resource "azurerm_subnet" "subnet" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# Create Public IP
-resource "azurerm_public_ip" "pip" {
-  name                = "restaurant-ip"
+# Create nic and subnet
+resource "azurerm_network_interface" "nic" {
+  name                = "saffron-nic"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static"
+
+  ip_configuration {
+    name                          = "restaurant-ip"
+    subnet_id                     = azurerm_subnet.subnet.id
+    private_ip_address_allocation = "Static"
+  }
 }
 
 # Network Security Group (Open Port 80 for HTTP)
