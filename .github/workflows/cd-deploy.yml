@@ -148,4 +148,3 @@ jobs:
             --name Saffron-VM `
             --command-id RunPowerShellScript `
             --scripts "@deploy.ps1"
-            --verbose
