@@ -1,0 +1,49 @@
+name: CD - Production Deploy
+
+on:
+  workflow_run:
+    workflows: ["SaffronAndSpiceWeb Build Pipeline"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: # Still allows you to trigger it manually
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    # Only run if CI succeeded or manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    
+    # This is the "Magic" line that triggers the manual approval gate
+    environment: Production 
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure VM
+        run: |
+          # Use the Run ID from the CI trigger or the manual input
+          RUN_ID=${{ github.event.workflow_run.id || github.event.inputs.manual_run_id }}
+          
+          az vm run-command invoke \
+            --resource-group SaffronRestaurant-RG \
+            --name Saffron-VM \
+            --command-id RunPowerShellScript \
+            --scripts "
+              $headers = @{ 'Authorization' = 'Bearer ${{ secrets.GH_PAT_FOR_VM }}' }
+              $apiUrl = 'https://api.github.com/repos/${{ github.repository }}/actions/runs/' + $RUN_ID + '/artifacts'
+              $artifacts = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+              $url = $artifacts.artifacts | Where-Object { \$_.name -like 'restaurant-app-*' } | Select-Object -ExpandProperty download_url
+              
+              Invoke-WebRequest -Uri \$url -Headers $headers -OutFile 'app.zip'
+              Expand-Archive -Path 'app.zip' -DestinationPath 'C:/inetpub/wwwroot' -Force
+              iisreset
+            "
