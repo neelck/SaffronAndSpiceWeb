@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     
     # This is the "Magic" line that triggers the manual approval gate
-    environment: Production 
+    environment: production 
     
     steps:
       - name: Azure Login
