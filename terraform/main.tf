@@ -2,7 +2,7 @@
 # Create Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = "SaffronRestaurant-RG"
-  location = "East US"
+  location = "North Central US"
 }
 
 # Create Virtual Network
