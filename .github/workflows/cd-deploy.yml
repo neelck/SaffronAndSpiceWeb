@@ -32,20 +32,17 @@ jobs:
       - name: Deploy to Azure VM
         run: |
         
-         # 1. Capture variables from GitHub context
+          # 1. Capture variables
           $runnerRunId = "${{ github.event.workflow_run.id || github.event.inputs.manual_run_id }}"
           $runnerToken = "${{ secrets.GITHUB_TOKEN }}"
           
           # 2. Define the script content
-          #    CRITICAL CHANGE: We inject $runnerRunId and $runnerToken directly here.
-          #    - We do NOT use backticks for these two, so the Runner fills them in.
-          #    - We use backticks (`$) for everything else, so the VM handles it.
+          # CRITICAL FIX: The closing "@" below is now un-indented.
           $scriptContent = @"
             # --- BAKED IN VALUES ---
             `$RunId = "$runnerRunId"
             `$Token = "$runnerToken"
             
-            # --- START DIAGNOSTICS ---
             Write-Output "DEBUG: Script started."
             Write-Output "DEBUG: Using RunID: `$RunId"
             
@@ -61,7 +58,6 @@ jobs:
                     'X-GitHub-Api-Version' = '2022-11-28'
                 }
 
-                # Construct URL
                 `$apiUrl = "https://api.github.com/repos/${{ github.repository }}/actions/runs/`$RunId/artifacts"
                 Write-Output "DEBUG: Fetching URL: `$apiUrl"
 
@@ -73,7 +69,6 @@ jobs:
 
                 `$downloadUrl = `$artifact.archive_download_url
                 
-                # Handle Redirects (Azure Storage rejects GitHub Tokens)
                 `$redirect = Invoke-WebRequest -Uri `$downloadUrl -Headers `$headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
                 `$finalUrl = `$redirect.Headers.Location
                 if (!`$finalUrl) { `$finalUrl = `$downloadUrl }
@@ -82,14 +77,11 @@ jobs:
                 Invoke-WebRequest -Uri `$finalUrl -OutFile 'C:/temp/app.zip'
 
                 Write-Output "DEBUG: Deploying..."
-                # Stop IIS to unlock files
                 Stop-Service w3svc
-                
-                # Clean and Extract
                 Remove-Item 'C:/inetpub/wwwroot/*' -Recurse -Force -ErrorAction SilentlyContinue
                 Expand-Archive -Path 'C:/temp/app.zip' -DestinationPath 'C:/inetpub/wwwroot' -Force
-                
                 Start-Service w3svc
+                
                 Write-Output "SUCCESS: Deployment Complete."
             }
             catch {
@@ -98,10 +90,8 @@ jobs:
             }
           "@
           
-          # 3. Save to file
+          # 3. Save and Send
           Set-Content -Path "deploy.ps1" -Value $scriptContent
-
-          # 4. Send the FILE to Azure (No parameters needed anymore!)
           az vm run-command invoke `
             --resource-group SaffronRestaurant-RG `
             --name Saffron-VM `
