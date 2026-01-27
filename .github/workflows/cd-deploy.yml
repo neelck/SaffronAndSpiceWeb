@@ -32,7 +32,7 @@ jobs:
         run: |
           # Use the Run ID from the CI trigger or the manual input
           $RUN_ID= "${{ github.event.workflow_run.id || github.event.inputs.manual_run_id }}"
-          TOKEN= "${{ secrets.GITHUB_TOKEN }}"
+          $TOKEN= "${{ secrets.GITHUB_TOKEN }}"
           az vm run-command invoke `
             --resource-group SaffronRestaurant-RG `
             --name Saffron-VM `
