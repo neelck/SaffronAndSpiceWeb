@@ -2,7 +2,7 @@ name: CD - Production Deploy
 
 on:
   workflow_run:
-    workflows: ["SaffronAndSpiceWeb Build Pipeline"]
+    workflows: ["SaffronAndSpiceWebCiPipeline"]
     types: [completed]
     branches: [main]
   workflow_dispatch: # Still allows you to trigger it manually
