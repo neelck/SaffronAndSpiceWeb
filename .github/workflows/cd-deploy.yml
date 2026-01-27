@@ -94,5 +94,5 @@ jobs:
             --resource-group SaffronRestaurant-RG `
             --name Saffron-VM `
             --command-id RunPowerShellScript `
-            --scripts @deploy.ps1 `
+            --scripts "@deploy.ps1" `
             --parameters "$runnerRunId" "$runnerToken"
