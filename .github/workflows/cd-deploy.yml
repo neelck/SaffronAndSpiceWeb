@@ -31,52 +31,67 @@ jobs:
 
       - name: Deploy to Azure VM
         run: |
-          # 1. Capture the variables on the GitHub Runner
-          $RUN_ID = "${{ github.event.workflow_run.id || github.event.inputs.manual_run_id }}"
-          $TOKEN  = "${{ secrets.GITHUB_TOKEN }}" 
+          - name: Deploy via VM Run Command
+        shell: pwsh
+        run: |
+          # 1. Capture the values on the Runner
+          $runnerRunId = "${{ github.event.workflow_run.id || github.event.inputs.manual_run_id }}"
+          $runnerToken = "${{ secrets.GITHUB_TOKEN }}"
 
-          # 2. Define the script to run on the VM
-          #    - Variables WITHOUT backticks ($RUN_ID) are filled in by the Runner NOW.
-          #    - Variables WITH backticks (`$headers) are sent to the VM to run LATER.
+          # 2. Define the script STATICALLY (No variable injection needed inside)
+          #    We use '$args[0]' to grab the first parameter we send (RunID)
+          #    We use '$args[1]' to grab the second parameter we send (Token)
           $scriptBlock = @"
-            # A. Setup headers
+            `$RunId = `$args[0]
+            `$Token = `$args[1]
+            
+            Write-Output "DEBUG: Received RunID: `$RunId"
+
             `$headers = @{ 
-                'Authorization' = 'Bearer $TOKEN'
+                'Authorization' = 'Bearer ' + `$Token
                 'Accept'        = 'application/vnd.github+json'
                 'X-GitHub-Api-Version' = '2022-11-28'
             }
 
-            # B. Query GitHub API
-            `$apiUrl = "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts"
+            # Construct the URL using the variable we just received
+            `$apiUrl = "https://api.github.com/repos/${{ github.repository }}/actions/runs/`$RunId/artifacts"
             
-            Write-Output "Fetching artifacts from: `$apiUrl"
-            `$resp = Invoke-RestMethod -Uri `$apiUrl -Headers `$headers
+            Write-Output "DEBUG: Fetching URL: `$apiUrl"
+            
+            # --- The rest of the download logic ---
+            try {
+                `$resp = Invoke-RestMethod -Uri `$apiUrl -Headers `$headers -ErrorAction Stop
+            } catch {
+                Write-Error "Failed to fetch artifacts. Error: `$_"
+                exit 1
+            }
 
-            # C. Find the artifact download URL
             `$artifact = `$resp.artifacts | Where-Object { `$_.name -like 'restaurant-app-*' } | Select-Object -First 1
+            
+            if (!`$artifact) { 
+                Write-Error "Artifact not found for Run ID `$RunId"
+                exit 1 
+            }
+
             `$downloadUrl = `$artifact.archive_download_url
-
-            if (!`$downloadUrl) { Write-Error "Artifact not found!"; exit 1 }
-
-            # D. Download (Handling the 302 Redirect)
-            # GitHub redirects to Azure Blob Storage, which REJECTS the Auth header.
-            # We must capture the redirect URL first, then download from there.
+            
+            # Handle Redirects manually for Azure Storage
             `$redirect = Invoke-WebRequest -Uri `$downloadUrl -Headers `$headers -MaximumRedirection 0 -ErrorAction SilentlyContinue
             `$finalUrl = `$redirect.Headers.Location
-            
-            # Fallback if there was no redirect (rare)
             if (!`$finalUrl) { `$finalUrl = `$downloadUrl }
 
             Invoke-WebRequest -Uri `$finalUrl -OutFile 'C:/temp/app.zip'
 
-            # E. Deploy
+            # Deploy
             Expand-Archive -Path 'C:/temp/app.zip' -DestinationPath 'C:/inetpub/wwwroot' -Force
             iisreset
           "@
 
-          # 3. Send the command to Azure
+          # 3. Send the command WITH PARAMETERS
+          #    The order matters: RunID first, Token second
           az vm run-command invoke `
             --resource-group SaffronRestaurant-RG `
             --name Saffron-VM `
             --command-id RunPowerShellScript `
-            --scripts $scriptBlock
+            --scripts $scriptBlock `
+            --parameters $runnerRunId $runnerToken
