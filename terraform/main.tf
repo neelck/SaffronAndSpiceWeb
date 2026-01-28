@@ -113,12 +113,12 @@ resource "azurerm_virtual_machine_extension" "bootstrap" {
 
   # This command chain:
   # 1. Installs IIS (Web-Server)
-  # 2. Downloads .NET 9 Hosting Bundle (using safe aka.ms link and BasicParsing)
+  # 2. Downloads .NET 10 Hosting Bundle (using safe aka.ms link and BasicParsing)
   # 3. Installs .NET silently
   # 4. Restarts IIS to load the new module
   settings = <<SETTINGS
     {
-        "commandToExecute": "powershell -ExecutionPolicy Unrestricted -Command \"Install-WindowsFeature -name Web-Server -IncludeManagementTools; $url = 'https://aka.ms/dotnet/9.0/dotnet-hosting-win.exe'; $output = 'C:\\dotnet-hosting.exe'; Write-Output 'Downloading .NET 9...'; Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing; Write-Output 'Installing .NET 9...'; Start-Process -FilePath $output -ArgumentList '/install', '/quiet', '/norestart' -Wait; Write-Output 'Restarting IIS...'; net stop w3svc; net start w3svc\""
+        "commandToExecute": "powershell -ExecutionPolicy Unrestricted -Command \"Install-WindowsFeature -name Web-Server -IncludeManagementTools; $url = 'https://aka.ms/dotnet/10.0/dotnet-hosting-win.exe'; $output = 'C:\\dotnet-hosting.exe'; Write-Output 'Downloading .NET 10...'; Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing; Write-Output 'Installing .NET 10...'; Start-Process -FilePath $output -ArgumentList '/install', '/quiet', '/norestart' -Wait; Write-Output 'Restarting IIS...'; net stop w3svc; net start w3svc\""
     }
 SETTINGS
 

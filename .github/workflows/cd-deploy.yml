@@ -29,53 +29,15 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
-      - name: Install .NET 9 Hosting Bundle
+      - name: Check dotnet runtime version on VM
         shell: pwsh
         run: |
-        
-          $forceInstallScript = @"
-            # 1. Setup - Stop on any error
-            `$ErrorActionPreference = 'Stop'
-            Write-Output '--- [START] FORCING .NET 9 INSTALL ---'
-
-            # 2. Download (Overwrite if exists)
-            `$url = 'https://aka.ms/dotnet/9.0/dotnet-hosting-win.exe'
-            `$output = 'C:\temp\dotnet-hosting.exe'
-            
-            if (!(Test-Path 'C:\temp')) { New-Item -ItemType Directory -Force -Path 'C:\temp' | Out-Null }
-            
-            Write-Output "DOWNLOADING from: `$url"
-            Invoke-WebRequest -Uri `$url -OutFile `$output -UseBasicParsing
-
-            # 3. Install (Force Repair/Install)
-            # We add '/repair' in case a broken install exists, but usually '/install' handles both.
-            Write-Output 'INSTALLING: Running installer...'
-            
-            # Note: We use -Wait to ensure it finishes before we move on
-            `$process = Start-Process -FilePath `$output -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
-            
-            Write-Output "INSTALLER FINISHED with Exit Code: `$(`$process.ExitCode)"
-
-            # 4. Restart IIS (Critical)
-            Write-Output 'RESTARTING IIS...'
-            net stop w3svc
-            net start w3svc
-
-            # 5. Proof of Life
-            Write-Output '--- [REALITY CHECK] ---'
-            Write-Output 'If this list is empty, the install failed:'
-            dotnet --list-runtimes
-            Write-Output '--- [END] ---'
-          "@
-
-          Set-Content -Path "force_install.ps1" -Value $forceInstallScript
-
           az vm run-command invoke `
             --resource-group SaffronRestaurant-RG `
             --name Saffron-VM `
             --command-id RunPowerShellScript `
-            --scripts "@force_install.ps1"
-
+            --scripts "dotnet --list-runtimes"
+          
       - name: Deploy to Azure VM
         run: |
         
